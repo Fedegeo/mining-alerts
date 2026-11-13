@@ -1,0 +1,52 @@
+name: mining-alerts
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"   # every 30 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: mining-alerts
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e .
+
+      # The SQLite "already seen" database is carried between runs via the cache.
+      - name: Restore seen-items database
+        uses: actions/cache/restore@v4
+        with:
+          path: data/alerts.sqlite
+          key: alerts-db-${{ github.run_id }}
+          restore-keys: alerts-db-
+
+      - name: Check for new announcements
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: mining-alerts run
+
+      - name: Save seen-items database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/alerts.sqlite
+          key: alerts-db-${{ github.run_id }}

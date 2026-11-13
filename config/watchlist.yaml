@@ -1,0 +1,174 @@
+# Watchlist: the companies and projects we follow.
+#
+# How matching works
+#   - A news item is tagged with a COMPANY when one of its `aliases` appears in the
+#     title/summary AND (if `context` is set) at least one context word also appears.
+#     Items that come from a company-specific source (its own RSS feed, EDGAR filings,
+#     ASX announcements, newsroom page) are always tagged with that company.
+#   - A news item is tagged with a PROJECT when one of the project's aliases appears
+#     AND (if the project has `context`) a context word appears or the parent company
+#     was also matched. Project hits are flagged as higher priority in alerts.
+#   - `context` exists to kill false positives for common words ("Orion", "Minto",
+#     "Ana Paula" is also a person's name, ...). Keep it for anything ambiguous.
+#
+# `status: needs_confirmation` = Claude's best guess at what you meant; please check.
+#
+# Sources per company (all optional):
+#   google_news: true            -> Google News RSS search built from aliases/projects
+#   languages: [en, es]          -> which Google News editions to search
+#   rss: [url, ...]              -> any RSS/Atom feed (company newsroom, Newsfile, GlobeNewswire...)
+#   edgar: "LAC"                 -> SEC EDGAR filings by ticker or CIK
+#   asx: "LEL"                   -> ASX company announcements by ASX code
+#   webpages: [{url, link_pattern}] -> scrape a newsroom page for new links
+
+defaults:
+  max_age_days: 10        # ignore items older than this (when the item has a date)
+  languages: [en]
+
+companies:
+
+  - id: heliostar
+    name: Heliostar Metals
+    status: confirmed
+    tickers: ["TSXV:HSTR", "OTCQX:HSTXF"]
+    aliases: ["Heliostar", "Heliostar Metals"]
+    google_news: true
+    languages: [en, es]
+    projects:
+      - name: Ana Paula
+        notes: Gold project, Guerrero, Mexico. Feasibility study planned Q2 2027.
+        aliases: ["Ana Paula"]
+        context: [gold, oro, Guerrero, mine, mina, project, proyecto, Heliostar, feasibility, drill]
+    # TODO: add Heliostar's Newsfile RSS feed / newsroom page once confirmed:
+    # rss: ["https://..."]
+
+  - id: orion
+    name: Orion Resource Partners (Orion Mine Finance)
+    status: confirmed
+    notes: >
+      Private fund - no exchange filings, so we rely on news searches plus the
+      portfolio projects below. Holds a Thacker Pass royalty and invested US$250M
+      in Lithium Americas (2025). Also Orion Critical Mineral Consortium (Orion CMC).
+    aliases: ["Orion Resource Partners", "Orion Mine Finance", "Orion CMC",
+              "Orion Critical Mineral Consortium", "Orion"]
+    # Bare "Orion" is far too common, so require a mining/finance word alongside it.
+    context: [mining, mine, royalty, royalties, stream, "mine finance", "resource partners",
+              gold, copper, lithium, financing, offtake, fund]
+    google_news: true
+    projects:
+      - name: Thacker Pass
+        notes: Lithium Americas' lithium project, Nevada. Orion holds a royalty and is an investor.
+        aliases: ["Thacker Pass"]
+      # --- The names below were given verbally; Claude could not confirm them. ---
+      - name: PMED
+        status: needs_confirmation
+        aliases: ["PMED"]
+        context: [Orion, mine, mining, royalty, project]
+      - name: Shalkote
+        status: needs_confirmation
+        aliases: ["Shalkote"]
+        context: [Orion, mine, mining, royalty, project]
+      - name: Wanan
+        status: needs_confirmation
+        aliases: ["Wanan"]
+        context: [Orion, mine, mining, royalty, project]
+
+  - id: lithium_americas
+    name: Lithium Americas
+    status: confirmed
+    tickers: ["NYSE:LAC", "TSX:LAC"]
+    aliases: ["Lithium Americas"]
+    google_news: true
+    edgar: "LAC"
+    projects:
+      - name: Thacker Pass
+        aliases: ["Thacker Pass"]
+
+  - id: or_royalties
+    name: OR Royalties (formerly Osisko Gold Royalties)
+    status: needs_confirmation
+    notes: >
+      Interpreted from "Cisco royalties" / "Orion royalties" - Osisko Gold Royalties
+      rebranded to OR Royalties in 2025. Remove if that is not what you meant.
+    tickers: ["TSX:OR", "NYSE:OR"]
+    aliases: ["OR Royalties", "Osisko Gold Royalties", "Osisko Royalties"]
+    google_news: true
+    edgar: "OR"
+
+  - id: access_world
+    name: Access World
+    status: needs_confirmation
+    notes: >
+      Unclear which company this is. "Access World" is a metals warehousing/logistics
+      group (ex-Pacorini). Replace aliases once confirmed.
+    aliases: ["Access World"]
+    google_news: true
+
+  - id: lithium_energy
+    name: Lithium Energy Limited
+    status: confirmed
+    tickers: ["ASX:LEL"]
+    aliases: ["Lithium Energy Limited", "Lithium Energy Ltd", "Lithium Energy (ASX:LEL)"]
+    google_news: true
+    languages: [en, es]
+    asx: "LEL"
+    projects:
+      - name: Solaroz
+        notes: Lithium brine project, Jujuy, Argentina.
+        aliases: ["Solaroz"]
+
+  - id: pan_american_energy
+    name: Pan American Energy (PAE)
+    status: needs_confirmation
+    notes: >
+      Assumed the Argentine energy group PAE, which is moving into lithium (via its
+      controlled vehicle Lition Energy). If you meant Pan American Energy Corp
+      (CSE: PNRG, a lithium explorer), change the aliases.
+    aliases: ["Pan American Energy", "Lition Energy"]
+    context: [lithium, litio, mining, minería, salar, brine]
+    google_news: true
+    languages: [en, es]
+
+  - id: argentina_potash
+    name: Argentina Potash
+    status: confirmed
+    notes: El Ceibo potash project, Neuquén Basin. US DFC funding (2026). Targeting NYSE American listing (ticker KCL).
+    aliases: ["Argentina Potash"]
+    google_news: true
+    languages: [en, es]
+    projects:
+      - name: El Ceibo
+        aliases: ["El Ceibo"]
+        context: [potash, potasa, Neuquén, Neuquen, "Argentina Potash"]
+
+  - id: minto
+    name: Minto Mine (Yukon, Canada)
+    status: confirmed
+    notes: Copper-gold mine in Yukon; former operator Minto Metals entered receivership in 2023.
+    aliases: ["Minto Mine", "Minto Metals", "Minto mine"]
+    google_news: true
+    projects:
+      - name: Minto
+        aliases: ["Minto"]
+        context: [Yukon, copper, mine, receivership, Selkirk]
+
+  - id: alpaca
+    name: Alpaca
+    status: needs_confirmation
+    notes: >
+      Could not identify this project. Possibly "Alpala" (SolGold's Cascabel copper-gold
+      project, Ecuador)? Confirm the name/company and update.
+    aliases: ["Alpaca"]
+    context: [mine, mining, project, royalty, copper, gold, lithium]
+    google_news: true
+
+  - id: cornish_metals
+    name: Cornish Metals
+    status: confirmed
+    tickers: ["TSXV:CUSN", "AIM:CUSN"]
+    aliases: ["Cornish Metals"]
+    google_news: true
+    projects:
+      - name: South Crofty
+        notes: Tin mine restart, Cornwall, UK.
+        aliases: ["South Crofty"]
