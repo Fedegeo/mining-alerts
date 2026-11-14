@@ -35,13 +35,16 @@ def cmd_run(args) -> int:
     wl = Watchlist.load(args.watchlist)
     store = Store(args.db)
     notifiers = configured_notifiers()
+    delivery = pipeline.Delivery.from_env(dict(os.environ))
     res = pipeline.run(wl, build_sources(wl), store, notifiers, make_session(),
-                       dry_run=args.dry_run, baseline=not args.no_baseline)
+                       dry_run=args.dry_run, baseline=not args.no_baseline,
+                       delivery=delivery, force_digest=args.send_digest)
     if args.dry_run and res.new:
         from .notifiers.base import plain_digest
         print(plain_digest(res.new))
     print(f"fetched={res.fetched} relevant={res.relevant} new_alerts={len(res.new)} "
-          f"duplicates_merged={res.collapsed} "
+          f"duplicates_merged={res.collapsed} queued_for_digest={len(res.queued)} "
+          f"digest_sent={res.digest_sent} mode={delivery.mode} "
           f"baselined_sources={len(res.baselined_sources)} errors={len(res.errors)}",
           file=sys.stderr)
     for name, err in res.errors.items():
@@ -90,6 +93,24 @@ def cmd_history(args) -> int:
     return 0
 
 
+def cmd_validate(args) -> int:
+    """Check the watchlist for likely problems."""
+    wl = Watchlist.load(args.watchlist)
+    issues = wl.lint()
+    for level, msg in issues:
+        print(f"{level:8} {msg}")
+    errors = sum(1 for lvl, _ in issues if lvl == "ERROR")
+    print(f"\n{len(wl.companies)} companies, "
+          f"{sum(len(c.projects) for c in wl.companies)} projects, "
+          f"{len(build_sources(wl))} sources; {errors} error(s)")
+    try:
+        pipeline.Delivery.from_env(dict(os.environ))
+    except Exception as exc:
+        print(f"ERROR    delivery settings: {exc}")
+        return 1
+    return 1 if errors else 0
+
+
 def cmd_health(args) -> int:
     """Show each source's last success/failure, worst first."""
     store = Store(args.db)
@@ -128,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--dry-run", action="store_true", help="print what would be alerted; change nothing")
     r.add_argument("--no-baseline", action="store_true",
                    help="alert on everything on a source's first run (default: first run is silent)")
+    r.add_argument("--send-digest", action="store_true",
+                   help="send the queued daily digest now (smart/daily modes)")
     r.set_defaults(func=cmd_run)
 
     sub.add_parser("sources", help="list every feed/URL that will be polled").set_defaults(func=cmd_sources)
@@ -138,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     h = sub.add_parser("history", help="show recently alerted items")
     h.add_argument("--limit", type=int, default=30)
     h.set_defaults(func=cmd_history)
+    sub.add_parser("validate", help="check the watchlist for problems").set_defaults(func=cmd_validate)
     sub.add_parser("health", help="show which sources are working / failing").set_defaults(func=cmd_health)
     sub.add_parser("test-notify", help="send a test alert to all channels").set_defaults(func=cmd_test_notify)
 

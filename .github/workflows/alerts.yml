@@ -22,6 +22,9 @@ jobs:
 
       - run: pip install -e .
 
+      - name: Check watchlist
+        run: mining-alerts validate
+
       # The SQLite "already seen" database is carried between runs via the cache.
       - name: Restore seen-items database
         uses: actions/cache/restore@v4
@@ -42,6 +45,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          # Non-secret settings: Settings > Secrets and variables > Actions > Variables
+          ALERT_MODE: ${{ vars.ALERT_MODE || 'instant' }}
+          DIGEST_HOUR: ${{ vars.DIGEST_HOUR || '7' }}
+          DIGEST_TZ: ${{ vars.DIGEST_TZ || 'UTC' }}
         run: mining-alerts run
 
       - name: Save seen-items database

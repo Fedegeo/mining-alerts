@@ -10,8 +10,10 @@ class Notifier(ABC):
     name: str
 
     @abstractmethod
-    def send(self, items: list[Announcement], warnings: list[str] | tuple = ()) -> None:
-        """Deliver one digest with all new items (+ any source-health warnings). Raise on failure."""
+    def send(self, items: list[Announcement], warnings: list[str] | tuple = (),
+             digest: bool = False) -> None:
+        """Deliver one message with all items (+ source-health warnings). Raise on failure.
+        digest=True marks the daily digest (it may also contain urgent items)."""
 
 
 def fmt_date(item: Announcement) -> str:
@@ -34,15 +36,17 @@ def meta(item: Announcement) -> str:
     return out
 
 
-def summary_line(items: list[Announcement]) -> str:
+def summary_line(items: list[Announcement], digest: bool = False) -> str:
     counts = Counter(i.categories[0] for i in items if i.categories)
     detail = ", ".join(f"{n} {c}" for c, n in counts.most_common(4))
-    return f"{len(items)} new announcement(s)" + (f" ({detail})" if detail else "")
+    head = "Daily digest: " if digest else ""
+    return f"{head}{len(items)} new announcement(s)" + (f" ({detail})" if detail else "")
 
 
-def plain_digest(items: list[Announcement], warnings: list[str] | tuple = ()) -> str:
+def plain_digest(items: list[Announcement], warnings: list[str] | tuple = (),
+                 digest: bool = False) -> str:
     from . import group_by_label  # local import avoids a cycle
-    lines = [summary_line(items) + "\n"] if items else []
+    lines = [summary_line(items, digest) + "\n"] if items else []
     for label, is_project, its in group_by_label(items):
         lines.append(f"{'★ PROJECT' if is_project else 'Company'}: {label}")
         for it in its:

@@ -17,15 +17,27 @@ any code. Run `python -m mining_alerts watchlist` to see the current list.
 |---|---|---|
 | Google News RSS (English and Spanish editions) | Press releases (Newsfile, GlobeNewswire...), trade press, Argentine/Mexican local news | `google_news: true`, `languages: [en, es]` |
 | SEC EDGAR | 8-K / 6-K / 40-F filings of US-listed names (Lithium Americas, OR Royalties) | `edgar: "LAC"` |
-| ASX announcements | Lithium Energy (ASX:LEL) | `asx: "LEL"` |
+| ASX announcements | Lithium Energy (ASX:LEL), PMET Resources (ASX:PMT) | `asx: "LEL"` |
 | Any RSS/Atom feed | Official company feeds, e.g. Newsfile for Heliostar and Elemental Royalty | `rss: [url]` |
 | Newsroom web page | Companies with no feed | `webpages: [{url, link_pattern}]` |
 
 ### How it avoids false alerts
+`python -m mining_alerts validate` checks the watchlist and lists weak spots:
+short one-word names without context words, entries still marked
+needs_confirmation, and companies relying only on Google News. GitHub Actions
+runs it before each check.
+
 Names like "Orion", "Minto" or "Ana Paula" turn up all the time in unrelated news.
 For names like these, a match also needs one of the entry's `context` words, such as
-`mine`, `royalty`, `Guerrero` or `Yukon`. You can check how a headline would be
-handled:
+`mine`, `royalty`, `Guerrero` or `Yukon`. A context word also matches longer words
+that start with it, so `drill` covers `drilling`.
+
+`exclude` lists phrases that block a match, for other organisations with similar
+names. Examples: Minto Group (an Ottawa property developer), Orion Energy Systems,
+Alpaca Markets. A full company name in the same headline overrides the exclude, so
+"Orion Resource Partners invests in Orion Minerals" still counts.
+
+You can check how a headline would be handled:
 
 ```bash
 python -m mining_alerts check "Heliostar drills 10 g/t gold at Ana Paula"
@@ -52,6 +64,18 @@ release or the press-release wire chosen as the original, plus a line like
 
 `python -m mining_alerts check "<headline>"` shows both the match and the type tags.
 
+### When alerts arrive (`ALERT_MODE`)
+| Mode | What happens |
+|---|---|
+| `instant` (default) | Every new item is sent on the run that finds it. |
+| `smart` (recommended) | Project news and high-priority types are sent at once. Routine company news (drilling, results, management, events) is collected into **one daily digest**. |
+| `daily` | Everything goes into one daily digest. |
+
+The digest is sent on the first run after `DIGEST_HOUR` in your time zone
+(`DIGEST_TZ`, e.g. `America/Argentina/Buenos_Aires`). Items stay queued until a
+digest is actually delivered, so a failed email loses nothing.
+`run --send-digest` sends the queued digest immediately.
+
 ### Broken-feed warnings
 If a source fails 3 runs in a row (a feed address changed, a site blocking us),
 you get one "Source health" warning in your alert channel. Run
@@ -74,8 +98,8 @@ python -m mining_alerts run --dry-run # see what would be alerted, change nothin
 python -m mining_alerts run           # the real run
 ```
 
-Other commands: `sources` (every URL polled), `history` (recent alerts),
-`health` (feed status), `-v` (debug logs).
+Other commands: `validate` (watchlist check), `sources` (every URL polled),
+`history` (recent alerts), `health` (feed status), `-v` (debug logs).
 
 ### Run it on a schedule
 
@@ -83,8 +107,10 @@ Pick one:
 
 - **GitHub Actions (recommended, no server needed):** push this folder to a
   private GitHub repo and add the `.env` values as repository secrets
-  (Settings → Secrets → Actions). `.github/workflows/alerts.yml` runs every
-  30 minutes and keeps its "already seen" database in the Actions cache.
+  (Settings → Secrets → Actions). Put `ALERT_MODE`, `DIGEST_HOUR` and
+  `DIGEST_TZ` under the Variables tab instead. `.github/workflows/alerts.yml` runs
+  every 30 minutes and keeps its database (items already seen, digest queue) in the
+  Actions cache.
 - **cron on any machine:**
   ```
   */30 * * * * cd /path/to/mining-alerts && .venv/bin/python -m mining_alerts run >> data/run.log 2>&1

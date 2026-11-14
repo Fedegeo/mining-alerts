@@ -22,9 +22,9 @@ class TelegramNotifier(Notifier):
             return cls(env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"])
         return None
 
-    def build_messages(self, items: list[Announcement], warnings=()) -> list[str]:
+    def build_messages(self, items: list[Announcement], warnings=(), digest: bool = False) -> list[str]:
         from . import group_by_label
-        chunks, cur = [], (f"<b>{html.escape(summary_line(items))}</b>\n" if items else "")
+        chunks, cur = [], (f"<b>{html.escape(summary_line(items, digest))}</b>\n" if items else "")
         for label, is_project, its in group_by_label(items):
             block = f"\n{'⭐ ' if is_project else ''}<b>{html.escape(label)}</b>\n" + "".join(
                 f"• {('[' + html.escape(it.categories[0]) + '] ') if it.categories else ''}"
@@ -43,8 +43,8 @@ class TelegramNotifier(Notifier):
         chunks.append(cur)
         return chunks
 
-    def send(self, items: list[Announcement], warnings=()) -> None:
-        for text in self.build_messages(items, warnings):
+    def send(self, items: list[Announcement], warnings=(), digest: bool = False) -> None:
+        for text in self.build_messages(items, warnings, digest):
             resp = requests.post(
                 f"https://api.telegram.org/bot{self.token}/sendMessage",
                 json={"chat_id": self.chat_id, "text": text, "parse_mode": "HTML",

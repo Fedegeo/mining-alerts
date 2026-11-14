@@ -8,6 +8,8 @@
 #   - A news item is tagged with a PROJECT when one of the project's aliases appears
 #     AND (if the project has `context`) a context word appears or the parent company
 #     was also matched. Project hits are flagged as higher priority in alerts.
+#   - `exclude` vetoes a match when one of its phrases appears (other companies with
+#     similar names, e.g. "Minto Group" the Ottawa property developer).
 #   - `context` exists to kill false positives for common words ("Orion", "Minto",
 #     "Ana Paula" is also a person's name, ...). Keep it for anything ambiguous.
 #
@@ -53,24 +55,33 @@ companies:
     # Bare "Orion" is far too common, so require a mining/finance word alongside it.
     context: [mining, mine, royalty, royalties, stream, "mine finance", "resource partners",
               gold, copper, lithium, financing, offtake, fund]
+    exclude: ["Orion Energy Systems", "Orion Group Holdings", "Orion Office REIT", "Orion S.A.",
+              "Orion Engineered Carbons", "Orion Oyj", "Orion Corporation", "Orion Minerals",
+              "Orion spacecraft", "Artemis", "NASA", "Orion Health"]
     google_news: true
     projects:
       - name: Thacker Pass
         notes: Lithium Americas' lithium project, Nevada. Orion holds a royalty and is an investor.
         aliases: ["Thacker Pass"]
-      # --- The names below were given verbally; Claude could not confirm them. ---
-      - name: PMED
-        status: needs_confirmation
-        aliases: ["PMED"]
-        context: [Orion, mine, mining, royalty, project]
-      - name: Shalkote
-        status: needs_confirmation
-        aliases: ["Shalkote"]
-        context: [Orion, mine, mining, royalty, project]
-      - name: Wanan
-        status: needs_confirmation
-        aliases: ["Wanan"]
-        context: [Orion, mine, mining, royalty, project]
+
+  - id: pmet
+    name: PMET Resources (formerly Patriot Battery Metals)
+    status: confirmed
+    notes: >
+      Lithium developer, James Bay, Quebec. ESIA submitted March 2026; ~C$130M
+      financings in Feb 2026. Releases go out via PR Newswire / Cision and the ASX.
+    tickers: ["TSX:PMET", "ASX:PMT", "OTCQX:PMETF"]
+    aliases: ["PMET Resources", "Patriot Battery Metals", "PMET"]
+    # Bare "PMET" is also an abbreviation in other fields - require a lithium/mining word.
+    context: [lithium, litio, spodumene, mining, mine, Quebec, Québec, "James Bay", drill,
+              financing, offering, Shaakichiuwaanaan, "PMET Resources", "Patriot Battery Metals"]
+    google_news: true
+    asx: "PMT"
+    projects:
+      - name: Shaakichiuwaanaan
+        notes: Spodumene lithium project (formerly "Corvette"), incl. CV5 and CV13 pegmatites.
+        aliases: ["Shaakichiuwaanaan", "Corvette lithium", "Corvette property", "CV5 pegmatite",
+                  "CV13 pegmatite"]
 
   - id: lithium_americas
     name: Lithium Americas
@@ -124,6 +135,7 @@ companies:
     # "Gold.com" can appear as a price source in unrelated articles - require a company word.
     context: [NYSE, shares, results, quarter, fiscal, earnings, revenue, acquisition, acquire,
               "A-Mark", bullion, "JM Bullion", "Stack's Bowers", dividend, partnership, CEO]
+    exclude: ["Barrick"]
     news_query: '"Gold.com" (NYSE OR shares OR results OR acquisition OR bullion OR "A-Mark")'
     google_news: true
     edgar: "GOLD"
@@ -135,6 +147,8 @@ companies:
       Unclear which company this is. "Access World" is a metals warehousing/logistics
       group (ex-Pacorini). Replace aliases once confirmed.
     aliases: ["Access World"]
+    context: [metals, warehouse, warehousing, logistics, LME, aluminium, aluminum, copper, cobalt,
+              storage, commodities, mining]
     google_news: true
 
   - id: lithium_energy
@@ -179,6 +193,8 @@ companies:
     status: confirmed
     notes: Copper-gold mine in Yukon; former operator Minto Metals entered receivership in 2023.
     aliases: ["Minto Mine", "Minto Metals", "Minto mine"]
+    exclude: ["Minto Group", "Minto Communities", "Minto Apartment", "Minto Properties", "Minto, NSW",
+              "Minto, New South Wales", "Minto Developments"]
     google_news: true
     projects:
       - name: Minto
@@ -193,6 +209,7 @@ companies:
       project, Ecuador)? Confirm the name/company and update.
     aliases: ["Alpaca"]
     context: [mine, mining, project, royalty, copper, gold, lithium]
+    exclude: ["Alpaca Markets", "Alpaca API", "alpaca farm", "alpaca wool", "llama"]
     google_news: true
 
   - id: cornish_metals

@@ -15,9 +15,9 @@ TAG_STYLE = ("display:inline-block;padding:1px 6px;margin-right:4px;border-radiu
 HIGH_STYLE = TAG_STYLE.replace("#eef;color:#335", "#fde8e8;color:#9b1c1c")
 
 
-def html_digest(items: list[Announcement], warnings=()) -> str:
+def html_digest(items: list[Announcement], warnings=(), digest: bool = False) -> str:
     from . import group_by_label
-    parts = [f"<p><b>{html.escape(summary_line(items))}</b></p>"] if items else []
+    parts = [f"<p><b>{html.escape(summary_line(items, digest))}</b></p>"] if items else []
     for label, is_project, its in group_by_label(items):
         badge = "&#9733; PROJECT" if is_project else "Company"
         parts.append(f"<h3 style='margin-bottom:4px'>{badge}: {html.escape(label)}</h3><ul>")
@@ -57,12 +57,12 @@ class EmailNotifier(Notifier):
             to=[a.strip() for a in env["ALERT_EMAIL_TO"].split(",") if a.strip()],
         )
 
-    def build_message(self, items: list[Announcement], warnings=()) -> EmailMessage:
+    def build_message(self, items: list[Announcement], warnings=(), digest: bool = False) -> EmailMessage:
         from . import group_by_label
         labels = [g[0] for g in group_by_label(items)]
         if items:
             hot = sorted({i.categories[0] for i in items if i.is_high_priority and i.categories})
-            subject = f"[Mining alerts] {len(items)} new"
+            subject = f"[Mining {'digest' if digest else 'alerts'}] {len(items)} new"
             subject += f" ({', '.join(hot)})" if hot else ""
             subject += ": " + ", ".join(labels[:3])
             if len(labels) > 3:
@@ -71,12 +71,12 @@ class EmailNotifier(Notifier):
             subject = "[Mining alerts] source health warning"
         msg = EmailMessage()
         msg["Subject"], msg["From"], msg["To"] = subject, self.sender, ", ".join(self.to)
-        msg.set_content(plain_digest(items, warnings))
-        msg.add_alternative(html_digest(items, warnings), subtype="html")
+        msg.set_content(plain_digest(items, warnings, digest))
+        msg.add_alternative(html_digest(items, warnings, digest), subtype="html")
         return msg
 
-    def send(self, items: list[Announcement], warnings=()) -> None:
-        msg = self.build_message(items, warnings)
+    def send(self, items: list[Announcement], warnings=(), digest: bool = False) -> None:
+        msg = self.build_message(items, warnings, digest)
         with smtplib.SMTP(self.host, self.port, timeout=30) as smtp:
             smtp.starttls()
             if self.user:

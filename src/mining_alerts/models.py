@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -73,3 +73,16 @@ class Announcement:
     @property
     def text(self) -> str:
         return f"{self.title}\n{self.summary}"
+
+    # --- (de)serialisation for the digest queue ---
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["published"] = self.published.isoformat() if self.published else None
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Announcement":
+        d = dict(d)
+        d["published"] = datetime.fromisoformat(d["published"]) if d.get("published") else None
+        d["matches"] = [Match(**m) for m in d.get("matches", [])]
+        return cls(**d)

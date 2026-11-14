@@ -79,3 +79,46 @@ def test_gold_com(wl):
         "Gold.com (formerly A-Mark Precious Metals)"]
     # used as a price source in an unrelated story -> no alert
     assert labels(wl, "Gold hits record high, according to data from Gold.com") == []
+
+
+def test_pmet_and_project(wl):
+    assert labels(wl, "PMET Advances Shaakichiuwaanaan Development with 30,000 m Drill Program") == [
+        "PMET Resources (formerly Patriot Battery Metals) / Shaakichiuwaanaan"]
+    assert labels(wl, "PMET Announces up to C$130 Million Financings") == [
+        "PMET Resources (formerly Patriot Battery Metals)"]
+    assert labels(wl, "Patriot Battery Metals drills spodumene at CV13 pegmatite")[0].endswith("Shaakichiuwaanaan")
+    assert labels(wl, "PMET levels in blood samples") == []
+
+
+def test_context_words_match_word_starts(wl):
+    # "royalty" context also accepts "royalties"; "drill" accepts "drilling"
+    assert labels(wl, "Altius Minerals adds two royalties") == ["Altius Minerals"]
+
+
+def test_exclude_vetoes_lookalike_companies(wl):
+    assert labels(wl, "Minto Group buys Ottawa office tower near mine shaft memorial") == []
+    assert labels(wl, "Orion Energy Systems raises funding for LED lighting") == []
+    assert labels(wl, "Alpaca Markets raises funding for trading API in mining stocks") == []
+
+
+def test_exclude_does_not_block_full_name(wl):
+    got = labels(wl, "Orion Resource Partners invests in Orion Minerals copper project")
+    assert got == ["Orion Resource Partners (Orion Mine Finance)"]
+
+
+def test_lint(wl):
+    issues = wl.lint()
+    levels = {lvl for lvl, _ in issues}
+    assert "ERROR" not in levels
+    assert any(lvl == "CONFIRM" and "Access World" in msg for lvl, msg in issues)
+    assert any(lvl == "INFO" and "Altius" in msg for lvl, msg in issues)
+
+
+def test_lint_flags_risky_and_broken(tmp_path):
+    p = tmp_path / "w.yaml"
+    p.write_text("companies:\n - {id: a, name: A, aliases: [Zed]}\n"
+                 " - {id: b, name: B, aliases: [Bee Co], rss: [not-a-url]}\n")
+    issues = Watchlist.load(p).lint()
+    assert issues[0][0] == "ERROR"
+    msgs = " ".join(m for _, m in issues)
+    assert "no sources configured" in msgs and "not a URL" in msgs and "one-word alias" in msgs

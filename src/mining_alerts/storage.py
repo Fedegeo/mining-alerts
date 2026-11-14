@@ -1,6 +1,7 @@
 """SQLite store of announcements already seen/alerted, so we never alert twice."""
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -27,6 +28,15 @@ CREATE TABLE IF NOT EXISTS source_health (
     last_error           TEXT,
     last_ok              TEXT,
     last_failure         TEXT
+);
+CREATE TABLE IF NOT EXISTS digest_queue (
+    key        TEXT PRIMARY KEY,
+    payload    TEXT NOT NULL,              -- Announcement as JSON
+    queued_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS kv (
+    key   TEXT PRIMARY KEY,
+    value TEXT
 );
 """
 
@@ -93,6 +103,30 @@ class Store:
         return self.conn.execute(
             "SELECT name, consecutive_failures, last_ok, last_failure, last_error FROM source_health "
             "ORDER BY consecutive_failures DESC, name").fetchall()
+
+    # --- daily digest queue ---
+    def enqueue(self, items: list[Announcement]) -> None:
+        now = _now()
+        self.conn.executemany("INSERT OR IGNORE INTO digest_queue VALUES (?, ?, ?)",
+                              [(it.url_key, json.dumps(it.to_dict()), now) for it in items])
+        self.conn.commit()
+
+    def queued(self) -> list[Announcement]:
+        rows = self.conn.execute("SELECT payload FROM digest_queue ORDER BY queued_at").fetchall()
+        return [Announcement.from_dict(json.loads(r[0])) for r in rows]
+
+    def dequeue(self, items: list[Announcement]) -> None:
+        self.conn.executemany("DELETE FROM digest_queue WHERE key=?", [(it.url_key,) for it in items])
+        self.conn.commit()
+
+    def get_value(self, key: str) -> str | None:
+        row = self.conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def set_value(self, key: str, value: str) -> None:
+        self.conn.execute("INSERT INTO kv VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                          (key, value))
+        self.conn.commit()
 
     def recent_alerts(self, limit: int = 50) -> list[tuple]:
         return self.conn.execute(
