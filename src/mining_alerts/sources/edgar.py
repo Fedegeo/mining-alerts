@@ -35,7 +35,7 @@ class EdgarSource(Source):
         headers = {"User-Agent": ua} if ua else {}
         resp = session.get(self.url, headers=headers, timeout=self.timeout)
         resp.raise_for_status()
-        items = parse_feed(resp.content, self.name, self.company_hint)
+        items = parse_feed(resp.content, self.name, self.company_hint, publisher="SEC EDGAR")
         out = []
         for it in items:
             # EDGAR titles look like "8-K - Current report"; keep news-bearing forms only.

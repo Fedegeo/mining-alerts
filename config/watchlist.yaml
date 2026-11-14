@@ -39,8 +39,7 @@ companies:
         notes: Gold project, Guerrero, Mexico. Feasibility study planned Q2 2027.
         aliases: ["Ana Paula"]
         context: [gold, oro, Guerrero, mine, mina, project, proyecto, Heliostar, feasibility, drill]
-    # TODO: add Heliostar's Newsfile RSS feed / newsroom page once confirmed:
-    # rss: ["https://..."]
+    rss: ["https://feeds.newsfilecorp.com/company/7729"]   # official Newsfile releases
 
   - id: orion
     name: Orion Resource Partners (Orion Mine Finance)
@@ -100,10 +99,11 @@ companies:
     status: confirmed
     notes: >
       Formed Nov 2025 by the merger of Elemental Altus Royalties and EMX Royalty.
-      Uplisted to the TSX main board in 2026 (confirm current ticker).
-    tickers: ["TSX:ELE", "OTCQX:ELEMF"]
+      Also listed on Nasdaq (late 2025) and moved to the TSX main board (April 2026).
+    tickers: ["TSX:ELE", "NASDAQ:ELE"]
     aliases: ["Elemental Royalty", "Elemental Royalties", "Elemental Altus", "EMX Royalty"]
     google_news: true
+    rss: ["https://feeds.newsfilecorp.com/company/8358"]   # official Newsfile releases
 
   - id: altius
     name: Altius Minerals

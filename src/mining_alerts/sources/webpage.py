@@ -27,7 +27,8 @@ def parse_links(html: str, base_url: str, pattern: str, source: str,
         if len(text) < 15 or not rx.search(href) or href in seen:
             continue
         seen.add(href)
-        out.append(Announcement(title=text, url=href, source=source, company_hint=company_hint))
+        out.append(Announcement(title=text, url=href, source=source, company_hint=company_hint,
+                                publisher="company website"))
     return out
 
 

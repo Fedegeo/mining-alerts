@@ -48,7 +48,15 @@ class Announcement:
     published: datetime | None = None
     summary: str = ""
     company_hint: str | None = None  # set when the source itself belongs to one company
+    publisher: str = ""              # e.g. "Newsfile", "Reuters" (when the feed says)
     matches: list[Match] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)   # set by classify.categorize
+    also_reported_by: list[str] = field(default_factory=list)  # collapsed near-duplicates
+
+    @property
+    def is_high_priority(self) -> bool:
+        from .classify import HIGH_PRIORITY
+        return any(c in HIGH_PRIORITY for c in self.categories)
 
     @property
     def url_key(self) -> str:

@@ -24,9 +24,12 @@ class FakeSession:
 
 def test_parse_rss():
     items = parse_feed((FIX / "google_news.xml").read_bytes(), "gn")
-    assert len(items) == 5
+    assert len(items) == 6
     assert items[0].summary.startswith("Heliostar reports")  # HTML stripped
     assert items[0].published.year == 2026
+    # publisher pulled from <source>, " - Newsfile" suffix removed from the title
+    assert items[0].publisher == "Newsfile"
+    assert items[0].title.endswith("at Ana Paula")
 
 
 def test_edgar_filters_ownership_forms():
@@ -34,6 +37,7 @@ def test_edgar_filters_ownership_forms():
     items = src.fetch(FakeSession((FIX / "edgar.xml").read_bytes()))
     assert [i.title for i in items] == ["[SEC 8-K] Current report"]
     assert items[0].company_hint == "lithium_americas"
+    assert items[0].publisher == "SEC EDGAR"
 
 
 def test_asx_parse():
@@ -71,3 +75,19 @@ def test_build_sources_dedupes_shared_urls():
 
 def test_custom_news_query():
     assert build_queries(WL.get("gold_com"))[0][1].startswith('"Gold.com" (NYSE')
+
+
+def test_newsfile_feed_publisher():
+    from mining_alerts.sources.rss import RSSSource
+    src = RSSSource("https://feeds.newsfilecorp.com/company/7729", company_hint="heliostar")
+    xml = b"""<rss><channel><title>Heliostar Metals Ltd. News Releases</title>
+    <item><title>Heliostar Announces Ana Paula Permit</title><link>https://newsfile/x</link></item>
+    </channel></rss>"""
+    [it] = src.fetch(FakeSession(xml))
+    assert it.publisher == "Newsfile" and it.company_hint == "heliostar"
+
+
+def test_session_has_retries():
+    from mining_alerts.sources import make_session
+    adapter = make_session().get_adapter("https://news.google.com")
+    assert adapter.max_retries.total == 3 and 429 in adapter.max_retries.status_forcelist

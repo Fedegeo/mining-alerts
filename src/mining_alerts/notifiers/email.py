@@ -7,21 +7,34 @@ import smtplib
 from email.message import EmailMessage
 
 from ..models import Announcement
-from .base import Notifier, fmt_date, plain_digest
+from .base import Notifier, meta, plain_digest, summary_line
 
 
-def html_digest(items: list[Announcement]) -> str:
+TAG_STYLE = ("display:inline-block;padding:1px 6px;margin-right:4px;border-radius:3px;"
+             "font-size:11px;background:#eef;color:#335")
+HIGH_STYLE = TAG_STYLE.replace("#eef;color:#335", "#fde8e8;color:#9b1c1c")
+
+
+def html_digest(items: list[Announcement], warnings=()) -> str:
     from . import group_by_label
-    parts = [f"<p><b>{len(items)} new announcement(s)</b></p>"]
+    parts = [f"<p><b>{html.escape(summary_line(items))}</b></p>"] if items else []
     for label, is_project, its in group_by_label(items):
         badge = "&#9733; PROJECT" if is_project else "Company"
         parts.append(f"<h3 style='margin-bottom:4px'>{badge}: {html.escape(label)}</h3><ul>")
         for it in its:
-            date = fmt_date(it)
+            badge = ""
+            if it.categories:
+                style = HIGH_STYLE if it.is_high_priority else TAG_STYLE
+                badge = f"<span style='{style}'>{html.escape(it.categories[0])}</span>"
+            m = meta(it)
             parts.append(
-                f"<li><a href='{html.escape(it.url, quote=True)}'>{html.escape(it.title)}</a>"
-                + (f" <small>({date})</small>" if date else "")
-                + f" <small style='color:#888'>[{html.escape(it.source.split(':')[0])}]</small></li>")
+                f"<li style='margin-bottom:6px'>{badge}"
+                f"<a href='{html.escape(it.url, quote=True)}'>{html.escape(it.title)}</a>"
+                + (f"<br><small style='color:#777'>{html.escape(m)}</small>" if m else "") + "</li>")
+        parts.append("</ul>")
+    if warnings:
+        parts.append("<h3 style='color:#9b1c1c'>&#9888; Source health</h3><ul>")
+        parts.extend(f"<li>{html.escape(w)}</li>" for w in warnings)
         parts.append("</ul>")
     return "\n".join(parts)
 
@@ -44,20 +57,26 @@ class EmailNotifier(Notifier):
             to=[a.strip() for a in env["ALERT_EMAIL_TO"].split(",") if a.strip()],
         )
 
-    def build_message(self, items: list[Announcement]) -> EmailMessage:
+    def build_message(self, items: list[Announcement], warnings=()) -> EmailMessage:
         from . import group_by_label
         labels = [g[0] for g in group_by_label(items)]
-        subject = f"[Mining alerts] {len(items)} new: " + ", ".join(labels[:3])
-        if len(labels) > 3:
-            subject += f" +{len(labels) - 3} more"
+        if items:
+            hot = sorted({i.categories[0] for i in items if i.is_high_priority and i.categories})
+            subject = f"[Mining alerts] {len(items)} new"
+            subject += f" ({', '.join(hot)})" if hot else ""
+            subject += ": " + ", ".join(labels[:3])
+            if len(labels) > 3:
+                subject += f" +{len(labels) - 3} more"
+        else:
+            subject = "[Mining alerts] source health warning"
         msg = EmailMessage()
         msg["Subject"], msg["From"], msg["To"] = subject, self.sender, ", ".join(self.to)
-        msg.set_content(plain_digest(items))
-        msg.add_alternative(html_digest(items), subtype="html")
+        msg.set_content(plain_digest(items, warnings))
+        msg.add_alternative(html_digest(items, warnings), subtype="html")
         return msg
 
-    def send(self, items: list[Announcement]) -> None:
-        msg = self.build_message(items)
+    def send(self, items: list[Announcement], warnings=()) -> None:
+        msg = self.build_message(items, warnings)
         with smtplib.SMTP(self.host, self.port, timeout=30) as smtp:
             smtp.starttls()
             if self.user:

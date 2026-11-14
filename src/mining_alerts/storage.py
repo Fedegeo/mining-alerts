@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .models import Announcement
@@ -20,6 +20,13 @@ CREATE TABLE IF NOT EXISTS seen (
 CREATE TABLE IF NOT EXISTS sources (
     name       TEXT PRIMARY KEY,
     first_run  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS source_health (
+    name                 TEXT PRIMARY KEY,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    last_error           TEXT,
+    last_ok              TEXT,
+    last_failure         TEXT
 );
 """
 
@@ -56,6 +63,36 @@ class Store:
                 rows.append((key, it.title, it.url, it.source, labels, int(alerted), now))
         self.conn.executemany("INSERT OR IGNORE INTO seen VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
         self.conn.commit()
+
+    def alerted_titles_since(self, days: int) -> list[str]:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+        rows = self.conn.execute("SELECT DISTINCT title FROM seen WHERE alerted=1 AND first_seen >= ?",
+                                 (cutoff,)).fetchall()
+        return [r[0] for r in rows]
+
+    # --- source health ---
+    def record_source_ok(self, name: str) -> None:
+        self.conn.execute(
+            "INSERT INTO source_health (name, consecutive_failures, last_ok) VALUES (?, 0, ?) "
+            "ON CONFLICT(name) DO UPDATE SET consecutive_failures=0, last_ok=excluded.last_ok",
+            (name, _now()))
+        self.conn.commit()
+
+    def record_source_failure(self, name: str, error: str) -> int:
+        """Record a failure and return the new consecutive-failure count."""
+        self.conn.execute(
+            "INSERT INTO source_health (name, consecutive_failures, last_error, last_failure) "
+            "VALUES (?, 1, ?, ?) ON CONFLICT(name) DO UPDATE SET "
+            "consecutive_failures=consecutive_failures+1, last_error=excluded.last_error, "
+            "last_failure=excluded.last_failure", (name, error[:500], _now()))
+        self.conn.commit()
+        return self.conn.execute("SELECT consecutive_failures FROM source_health WHERE name=?",
+                                 (name,)).fetchone()[0]
+
+    def source_health(self) -> list[tuple]:
+        return self.conn.execute(
+            "SELECT name, consecutive_failures, last_ok, last_failure, last_error FROM source_health "
+            "ORDER BY consecutive_failures DESC, name").fetchall()
 
     def recent_alerts(self, limit: int = 50) -> list[tuple]:
         return self.conn.execute(

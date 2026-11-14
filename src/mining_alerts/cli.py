@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from . import pipeline
+from .classify import categorize
 from .models import Announcement
 from .notifiers import configured_notifiers
 from .sources import build_sources, make_session
@@ -40,6 +41,7 @@ def cmd_run(args) -> int:
         from .notifiers.base import plain_digest
         print(plain_digest(res.new))
     print(f"fetched={res.fetched} relevant={res.relevant} new_alerts={len(res.new)} "
+          f"duplicates_merged={res.collapsed} "
           f"baselined_sources={len(res.baselined_sources)} errors={len(res.errors)}",
           file=sys.stderr)
     for name, err in res.errors.items():
@@ -70,11 +72,14 @@ def cmd_watchlist(args) -> int:
 def cmd_check(args) -> int:
     """Test the matcher on a headline, e.g. check "Heliostar drills 10 g/t at Ana Paula"."""
     wl = Watchlist.load(args.watchlist)
-    matches = wl.match(Announcement(title=args.text, url="about:blank", source="cli"))
+    item = Announcement(title=args.text, url="about:blank", source="cli")
+    matches = wl.match(item)
     if not matches:
         print("no match")
     for m in matches:
         print(("PROJECT  " if m.project else "COMPANY  ") + m.label)
+    cats = categorize(item)
+    print("TYPE     " + (", ".join(cats) if cats else "(uncategorized)"))
     return 0
 
 
@@ -85,11 +90,26 @@ def cmd_history(args) -> int:
     return 0
 
 
+def cmd_health(args) -> int:
+    """Show each source's last success/failure, worst first."""
+    store = Store(args.db)
+    rows = store.source_health()
+    if not rows:
+        print("no runs recorded yet")
+    for name, fails, last_ok, last_fail, err in rows:
+        status = "OK  " if fails == 0 else f"FAIL x{fails}"
+        print(f"{status:9} {name}\n          last ok: {(last_ok or 'never')[:16]}"
+              + (f"  last error: {(err or '')[:120]}" if fails else ""))
+    store.close()
+    return 0
+
+
 def cmd_test_notify(args) -> int:
     from .models import Match
     demo = Announcement(title="TEST - mining-alerts is configured correctly",
-                        url="https://example.com/test", source="test",
-                        matches=[Match("test", "Test Company", "Test Project")])
+                        url="https://example.com/test", source="test", publisher="mining-alerts",
+                        matches=[Match("test", "Test Company", "Test Project")],
+                        categories=["Financing"], also_reported_by=["Example Wire"])
     for n in configured_notifiers():
         n.send([demo])
         print(f"sent via {n.name}", file=sys.stderr)
@@ -118,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     h = sub.add_parser("history", help="show recently alerted items")
     h.add_argument("--limit", type=int, default=30)
     h.set_defaults(func=cmd_history)
+    sub.add_parser("health", help="show which sources are working / failing").set_defaults(func=cmd_health)
     sub.add_parser("test-notify", help="send a test alert to all channels").set_defaults(func=cmd_test_notify)
 
     args = p.parse_args(argv)

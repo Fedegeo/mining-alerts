@@ -6,6 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlsplit
 
 import requests
 
@@ -34,8 +35,11 @@ def parse_date(value: str | None) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def parse_feed(xml_bytes: bytes, source: str, company_hint: str | None = None) -> list[Announcement]:
+def parse_feed(xml_bytes: bytes, source: str, company_hint: str | None = None,
+               publisher: str = "") -> list[Announcement]:
     root = ET.fromstring(xml_bytes)
+    if not publisher:
+        publisher = strip_html(root.findtext("channel/title") or root.findtext(f"{ATOM}title"))
     items: list[Announcement] = []
 
     for it in root.iter("item"):                    # RSS 2.0
@@ -43,9 +47,14 @@ def parse_feed(xml_bytes: bytes, source: str, company_hint: str | None = None) -
         link = (it.findtext("link") or "").strip()
         if not title or not link:
             continue
+        # Google News puts the outlet in <source> and repeats it as a " - Outlet" title suffix.
+        item_pub = strip_html(it.findtext("source"))
+        if item_pub and title.endswith(f" - {item_pub}"):
+            title = title[: -len(item_pub) - 3].rstrip()
         items.append(Announcement(
             title=title, url=link, source=source, company_hint=company_hint,
             published=parse_date(it.findtext("pubDate")),
+            publisher=item_pub or publisher,
             summary=strip_html(it.findtext("description"))[:1000],
         ))
 
@@ -62,9 +71,25 @@ def parse_feed(xml_bytes: bytes, source: str, company_hint: str | None = None) -
         items.append(Announcement(
             title=title, url=link, source=source, company_hint=company_hint,
             published=parse_date(entry.findtext(f"{ATOM}updated") or entry.findtext(f"{ATOM}published")),
+            publisher=publisher,
             summary=strip_html(summary)[:1000],
         ))
     return items
+
+
+# Friendly publisher names for well-known feed hosts (otherwise the channel title is used).
+KNOWN_FEED_HOSTS = {
+    "newsfilecorp.com": "Newsfile",
+    "globenewswire.com": "GlobeNewswire",
+    "businesswire.com": "Business Wire",
+    "prnewswire.com": "PR Newswire",
+    "accesswire.com": "Accesswire",
+}
+
+
+def _publisher_for(url: str) -> str:
+    host = urlsplit(url).netloc.lower()
+    return next((name for h, name in KNOWN_FEED_HOSTS.items() if host.endswith(h)), "")
 
 
 class RSSSource(Source):
@@ -76,4 +101,4 @@ class RSSSource(Source):
     def fetch(self, session: requests.Session) -> list[Announcement]:
         resp = session.get(self.url, timeout=self.timeout)
         resp.raise_for_status()
-        return parse_feed(resp.content, self.name, self.company_hint)
+        return parse_feed(resp.content, self.name, self.company_hint, publisher=_publisher_for(self.url))

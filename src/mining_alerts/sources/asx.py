@@ -39,7 +39,7 @@ def parse_asx(payload: dict, code: str, company_hint: str) -> list[Announcement]
         sensitive = " [price-sensitive]" if it.get("isPriceSensitive") else ""
         out.append(Announcement(
             title=f"[ASX:{code.upper()}] {headline}{sensitive}", url=url,
-            source=f"asx:{code.upper()}", company_hint=company_hint,
+            source=f"asx:{code.upper()}", company_hint=company_hint, publisher="ASX",
             published=_parse_dt(it.get("date")),
             summary=", ".join(it.get("announcementTypes") or []),
         ))
