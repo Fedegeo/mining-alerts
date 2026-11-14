@@ -63,3 +63,19 @@ def test_duplicate_ids_rejected(tmp_path):
     p.write_text("companies:\n - {id: a, name: A, aliases: [A]}\n - {id: a, name: B, aliases: [B]}\n")
     with pytest.raises(ValueError):
         Watchlist.load(p)
+
+
+def test_royalty_companies(wl):
+    assert labels(wl, "Elemental Royalty reports record Q3 revenue") == ["Elemental Royalty"]
+    assert labels(wl, "EMX Royalty and Elemental Altus complete merger") == ["Elemental Royalty"]
+    assert labels(wl, "Altius Minerals acquires new copper royalty") == ["Altius Minerals"]
+    assert labels(wl, "Altius Capital launches new tech fund") == []
+    assert labels(wl, "Orion Resources closes copper stream financing") == [
+        "Orion Resource Partners (Orion Mine Finance)"]
+
+
+def test_gold_com(wl):
+    assert labels(wl, "Gold.com reports fiscal first quarter results") == [
+        "Gold.com (formerly A-Mark Precious Metals)"]
+    # used as a price source in an unrelated story -> no alert
+    assert labels(wl, "Gold hits record high, according to data from Gold.com") == []

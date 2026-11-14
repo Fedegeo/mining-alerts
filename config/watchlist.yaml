@@ -49,7 +49,7 @@ companies:
       Private fund - no exchange filings, so we rely on news searches plus the
       portfolio projects below. Holds a Thacker Pass royalty and invested US$250M
       in Lithium Americas (2025). Also Orion Critical Mineral Consortium (Orion CMC).
-    aliases: ["Orion Resource Partners", "Orion Mine Finance", "Orion CMC",
+    aliases: ["Orion Resource Partners", "Orion Resources", "Orion Mine Finance", "Orion CMC",
               "Orion Critical Mineral Consortium", "Orion"]
     # Bare "Orion" is far too common, so require a mining/finance word alongside it.
     context: [mining, mine, royalty, royalties, stream, "mine finance", "resource partners",
@@ -94,6 +94,39 @@ companies:
     aliases: ["OR Royalties", "Osisko Gold Royalties", "Osisko Royalties"]
     google_news: true
     edgar: "OR"
+
+  - id: elemental_royalty
+    name: Elemental Royalty
+    status: confirmed
+    notes: >
+      Formed Nov 2025 by the merger of Elemental Altus Royalties and EMX Royalty.
+      Uplisted to the TSX main board in 2026 (confirm current ticker).
+    tickers: ["TSX:ELE", "OTCQX:ELEMF"]
+    aliases: ["Elemental Royalty", "Elemental Royalties", "Elemental Altus", "EMX Royalty"]
+    google_news: true
+
+  - id: altius
+    name: Altius Minerals
+    status: confirmed
+    tickers: ["TSX:ALS", "OTCQX:ATUSF"]
+    aliases: ["Altius Minerals", "Altius"]
+    # Bare "Altius" is also a fund manager / tech brand name - require a mining word.
+    context: [royalty, royalties, mining, mine, potash, iron ore, copper, lithium, "Altius Minerals",
+              exploration, "project generation"]
+    google_news: true
+
+  - id: gold_com
+    name: Gold.com (formerly A-Mark Precious Metals)
+    status: confirmed
+    notes: A-Mark renamed to Gold.com and moved to the NYSE (ticker GOLD) in Dec 2025.
+    tickers: ["NYSE:GOLD"]
+    aliases: ["Gold.com", "A-Mark Precious Metals", "A-Mark"]
+    # "Gold.com" can appear as a price source in unrelated articles - require a company word.
+    context: [NYSE, shares, results, quarter, fiscal, earnings, revenue, acquisition, acquire,
+              "A-Mark", bullion, "JM Bullion", "Stack's Bowers", dividend, partnership, CEO]
+    news_query: '"Gold.com" (NYSE OR shares OR results OR acquisition OR bullion OR "A-Mark")'
+    google_news: true
+    edgar: "GOLD"
 
   - id: access_world
     name: Access World

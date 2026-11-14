@@ -24,7 +24,9 @@ def build_queries(company: Company) -> list[tuple[str, str]]:
     # Multi-word aliases are precise enough on their own; single bare words (e.g. "Orion")
     # are left to the matcher's context filter and not searched directly.
     precise = [a for a in company.aliases if " " in a]
-    if precise:
+    if company.news_query:
+        queries.append((company.id, company.news_query))
+    elif precise:
         queries.append((company.id, _quoted(precise)))
     else:  # only single-word aliases: add context words to keep the search on-topic
         q = _quoted(company.aliases or [company.name])

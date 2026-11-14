@@ -84,6 +84,9 @@ Account → Security → 2-Step Verification → App passwords, then set
         context: [copper, mine, Chile]      # needed when the name is generic
 ```
 
+If the automatic Google News search for a company is too broad, set your own with
+`news_query: '"Gold.com" (NYSE OR results)'`.
+
 Run `pytest` afterwards. Entries marked `status: needs_confirmation` are guesses
 that still need checking.
 

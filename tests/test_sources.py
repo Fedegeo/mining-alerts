@@ -67,3 +67,7 @@ def test_build_sources_dedupes_shared_urls():
     assert len(urls) == len(set(urls))
     assert any(s.name == "edgar:LAC" for s in sources)
     assert any(s.name == "asx:LEL" for s in sources)
+
+
+def test_custom_news_query():
+    assert build_queries(WL.get("gold_com"))[0][1].startswith('"Gold.com" (NYSE')

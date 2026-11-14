@@ -52,6 +52,7 @@ class Company:
     status: str = "confirmed"
     notes: str = ""
     google_news: bool = False
+    news_query: str | None = None  # optional hand-written Google News query for the company
     languages: list[str] = field(default_factory=lambda: ["en"])
     rss: list[str] = field(default_factory=list)
     edgar: str | None = None
