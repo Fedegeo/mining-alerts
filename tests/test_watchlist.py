@@ -110,7 +110,7 @@ def test_lint(wl):
     issues = wl.lint()
     levels = {lvl for lvl, _ in issues}
     assert "ERROR" not in levels
-    assert any(lvl == "CONFIRM" and "Access World" in msg for lvl, msg in issues)
+    assert not any(lvl == "CONFIRM" for lvl, _ in issues)   # every entry confirmed
     assert any(lvl == "INFO" and "Altius" in msg for lvl, msg in issues)
 
 

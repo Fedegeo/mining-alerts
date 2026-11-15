@@ -144,10 +144,8 @@ companies:
 
   - id: access_world
     name: Access World
-    status: needs_confirmation
-    notes: >
-      Unclear which company this is. "Access World" is a metals warehousing/logistics
-      group (ex-Pacorini). Replace aliases once confirmed.
+    status: confirmed
+    notes: Metals warehousing / logistics group (formerly Pacorini Metals).
     aliases: ["Access World"]
     context: [metals, warehouse, warehousing, logistics, LME, aluminium, aluminum, copper, cobalt,
               storage, commodities, mining]
@@ -168,11 +166,10 @@ companies:
 
   - id: pan_american_energy
     name: Pan American Energy (PAE)
-    status: needs_confirmation
+    status: confirmed
     notes: >
-      Assumed the Argentine energy group PAE, which is moving into lithium (via its
-      controlled vehicle Lition Energy). If you meant Pan American Energy Corp
-      (CSE: PNRG, a lithium explorer), change the aliases.
+      Argentine energy group moving into lithium via its controlled vehicle Lition
+      Energy. Oil & gas news is filtered out by the lithium/mining context words.
     aliases: ["Pan American Energy", "Lition Energy"]
     context: [lithium, litio, mining, minería, salar, brine]
     google_news: true
@@ -205,10 +202,10 @@ companies:
 
   - id: alpaca
     name: Alpaca
-    status: needs_confirmation
+    status: confirmed
     notes: >
-      Could not identify this project. Possibly "Alpala" (SolGold's Cascabel copper-gold
-      project, Ecuador)? Confirm the name/company and update.
+      Name confirmed; owning company not yet recorded. Adding the owner's name as an
+      alias would make matching more precise.
     aliases: ["Alpaca"]
     context: [mine, mining, project, royalty, copper, gold, lithium]
     exclude: ["Alpaca Markets", "Alpaca API", "alpaca farm", "alpaca wool", "llama"]
