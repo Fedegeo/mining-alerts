@@ -49,7 +49,14 @@ jobs:
           ALERT_MODE: ${{ vars.ALERT_MODE || 'instant' }}
           DIGEST_HOUR: ${{ vars.DIGEST_HOUR || '7' }}
           DIGEST_TZ: ${{ vars.DIGEST_TZ || 'Europe/London' }}
-        run: mining-alerts run
+        run: |
+          # Until an alert channel is configured, don't run: items would only reach the
+          # job log and then be remembered as already sent.
+          if [ -z "$ALERT_EMAIL_TO$SLACK_WEBHOOK_URL$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::No alert channel configured (add ALERT_EMAIL_TO + SMTP secrets) - skipping run"
+            exit 0
+          fi
+          mining-alerts run
 
       - name: Save seen-items database
         if: always()
