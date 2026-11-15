@@ -122,3 +122,11 @@ def test_lint_flags_risky_and_broken(tmp_path):
     assert issues[0][0] == "ERROR"
     msgs = " ".join(m for _, m in issues)
     assert "no sources configured" in msgs and "not a URL" in msgs and "one-word alias" in msgs
+
+
+def test_osisko_royalties(wl):
+    assert labels(wl, "OR Royalties Announces Preliminary Q3 2026 GEO Deliveries") == [
+        "OR Royalties (formerly Osisko Gold Royalties)"]
+    assert labels(wl, "Osisko Gold Royalties acquires stream on Canadian Copper") == [
+        "OR Royalties (formerly Osisko Gold Royalties)"]
+    assert labels(wl, "Osisko Development advances Cariboo Gold Project") == []

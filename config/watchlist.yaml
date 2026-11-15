@@ -96,12 +96,14 @@ companies:
 
   - id: or_royalties
     name: OR Royalties (formerly Osisko Gold Royalties)
-    status: needs_confirmation
+    status: confirmed
     notes: >
-      Interpreted from "Cisco royalties" / "Orion royalties" - Osisko Gold Royalties
-      rebranded to OR Royalties in 2025. Remove if that is not what you meant.
+      Osisko Gold Royalties rebranded to OR Royalties in 2025; news may use either name.
+      Releases go out via GlobeNewswire; SEC 6-K/40-F filings also covered.
     tickers: ["TSX:OR", "NYSE:OR"]
-    aliases: ["OR Royalties", "Osisko Gold Royalties", "Osisko Royalties"]
+    aliases: ["OR Royalties", "Osisko Gold Royalties", "Osisko Royalties", "Osisko Gold Royalties Ltd"]
+    # "Osisko Development" and "Osisko Mining" are separate companies.
+    exclude: ["Osisko Development", "Osisko Mining", "Osisko Metals"]
     google_news: true
     edgar: "OR"
 
