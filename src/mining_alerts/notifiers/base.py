@@ -11,9 +11,10 @@ class Notifier(ABC):
 
     @abstractmethod
     def send(self, items: list[Announcement], warnings: list[str] | tuple = (),
-             digest: bool = False) -> None:
+             kind: str = "alert") -> None:
         """Deliver one message with all items (+ source-health warnings). Raise on failure.
-        digest=True marks the daily digest (it may also contain urgent items)."""
+        kind: "alert" (new items), "digest" (daily digest, may include urgent items too)
+        or "weekly" (recap of everything sent in the last 7 days)."""
 
 
 def fmt_date(item: Announcement) -> str:
@@ -36,17 +37,22 @@ def meta(item: Announcement) -> str:
     return out
 
 
-def summary_line(items: list[Announcement], digest: bool = False) -> str:
+def summary_line(items: list[Announcement], kind: str = "alert") -> str:
     counts = Counter(i.categories[0] for i in items if i.categories)
     detail = ", ".join(f"{n} {c}" for c, n in counts.most_common(4))
-    head = "Daily digest: " if digest else ""
+    if kind == "weekly":
+        return f"Weekly recap: {len(items)} announcement(s) in the last 7 days" + (
+            f" ({detail})" if detail else "")
+    head = "Daily digest: " if kind == "digest" else ""
     return f"{head}{len(items)} new announcement(s)" + (f" ({detail})" if detail else "")
+
+SUBJECT_PREFIX = {"alert": "[Mining alerts]", "digest": "[Mining digest]", "weekly": "[Mining weekly recap]"}
 
 
 def plain_digest(items: list[Announcement], warnings: list[str] | tuple = (),
-                 digest: bool = False) -> str:
+                 kind: str = "alert") -> str:
     from . import group_by_label  # local import avoids a cycle
-    lines = [summary_line(items, digest) + "\n"] if items else []
+    lines = [summary_line(items, kind) + "\n"] if items else []
     for label, is_project, its in group_by_label(items):
         lines.append(f"{'★ PROJECT' if is_project else 'Company'}: {label}")
         for it in its:

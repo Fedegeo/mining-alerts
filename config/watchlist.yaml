@@ -89,7 +89,7 @@ companies:
     tickers: ["NYSE:LAC", "TSX:LAC"]
     aliases: ["Lithium Americas"]
     google_news: true
-    edgar: "LAC"
+    edgar: "0001966983"   # SEC CIK of the current Lithium Americas Corp. (ticker LAC)
     projects:
       - name: Thacker Pass
         aliases: ["Thacker Pass"]
@@ -214,10 +214,17 @@ companies:
   - id: cornish_metals
     name: Cornish Metals
     status: confirmed
-    tickers: ["TSXV:CUSN", "AIM:CUSN"]
-    aliases: ["Cornish Metals"]
+    notes: >
+      Re-domiciled to the UK (Dec 2025) as Cornish Metals plc, LSE ticker TIN.
+      Official announcements are RNS; Investegate lists them all on one page.
+    tickers: ["LSE:TIN"]
+    aliases: ["Cornish Metals", "Cornish Metals plc"]
     google_news: true
+    webpages:
+      - url: "https://www.investegate.co.uk/company/TIN"
+        link_pattern: "/announcement/[a-z]+/cornish-metals"
     projects:
       - name: South Crofty
-        notes: Tin mine restart, Cornwall, UK.
-        aliases: ["South Crofty"]
+        notes: Tin mine restart, Cornwall, UK. First tin guided for mid-2028.
+        aliases: ["South Crofty", "Roskear"]
+        context: [tin, Cornwall, mine, drill, Cornish]

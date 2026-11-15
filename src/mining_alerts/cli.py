@@ -38,13 +38,14 @@ def cmd_run(args) -> int:
     delivery = pipeline.Delivery.from_env(dict(os.environ))
     res = pipeline.run(wl, build_sources(wl), store, notifiers, make_session(),
                        dry_run=args.dry_run, baseline=not args.no_baseline,
-                       delivery=delivery, force_digest=args.send_digest)
+                       delivery=delivery, force_digest=args.send_digest,
+                       force_recap=args.send_recap)
     if args.dry_run and res.new:
         from .notifiers.base import plain_digest
         print(plain_digest(res.new))
     print(f"fetched={res.fetched} relevant={res.relevant} new_alerts={len(res.new)} "
           f"duplicates_merged={res.collapsed} queued_for_digest={len(res.queued)} "
-          f"digest_sent={res.digest_sent} mode={delivery.mode} "
+          f"digest_sent={res.digest_sent} recap_sent={res.recap_sent} mode={delivery.mode} "
           f"baselined_sources={len(res.baselined_sources)} errors={len(res.errors)}",
           file=sys.stderr)
     for name, err in res.errors.items():
@@ -151,6 +152,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="alert on everything on a source's first run (default: first run is silent)")
     r.add_argument("--send-digest", action="store_true",
                    help="send the queued daily digest now (smart/daily modes)")
+    r.add_argument("--send-recap", action="store_true",
+                   help="send the weekly recap (last 7 days) now")
     r.set_defaults(func=cmd_run)
 
     sub.add_parser("sources", help="list every feed/URL that will be polled").set_defaults(func=cmd_sources)

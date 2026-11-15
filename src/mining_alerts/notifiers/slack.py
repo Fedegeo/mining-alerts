@@ -18,9 +18,9 @@ class SlackNotifier(Notifier):
         url = env.get("SLACK_WEBHOOK_URL")
         return cls(url) if url else None
 
-    def build_text(self, items: list[Announcement], warnings=(), digest: bool = False) -> str:
+    def build_text(self, items: list[Announcement], warnings=(), kind: str = "alert") -> str:
         from . import group_by_label
-        lines = [f"*{summary_line(items, digest)}*"] if items else []
+        lines = [f"*{summary_line(items, kind)}*"] if items else []
         for label, is_project, its in group_by_label(items):
             lines.append(f"\n{':star: ' if is_project else ''}*{label}*")
             for it in its:
@@ -33,7 +33,7 @@ class SlackNotifier(Notifier):
             lines.extend(f"• {w}" for w in warnings)
         return "\n".join(lines)
 
-    def send(self, items: list[Announcement], warnings=(), digest: bool = False) -> None:
-        resp = requests.post(self.webhook_url, json={"text": self.build_text(items, warnings, digest)},
+    def send(self, items: list[Announcement], warnings=(), kind: str = "alert") -> None:
+        resp = requests.post(self.webhook_url, json={"text": self.build_text(items, warnings, kind)},
                              timeout=20)
         resp.raise_for_status()

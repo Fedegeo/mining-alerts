@@ -16,10 +16,10 @@ any code. Run `python -m mining_alerts watchlist` to see the current list.
 | Source | Covers | Config key |
 |---|---|---|
 | Google News RSS (English and Spanish editions) | Press releases (Newsfile, GlobeNewswire...), trade press, Argentine/Mexican local news | `google_news: true`, `languages: [en, es]` |
-| SEC EDGAR | 8-K / 6-K / 40-F filings of US-listed names (Lithium Americas, OR Royalties) | `edgar: "LAC"` |
+| SEC EDGAR | 8-K / 6-K / 40-F filings of US-listed names (Lithium Americas, OR Royalties, Gold.com) | `edgar: "LAC"` (ticker or CIK number) |
 | ASX announcements | Lithium Energy (ASX:LEL), PMET Resources (ASX:PMT) | `asx: "LEL"` |
 | Any RSS/Atom feed | Official company feeds, e.g. Newsfile for Heliostar and Elemental Royalty | `rss: [url]` |
-| Newsroom web page | Companies with no feed | `webpages: [{url, link_pattern}]` |
+| Newsroom web page | Companies with no feed, e.g. Cornish Metals' RNS announcements (via Investegate) | `webpages: [{url, link_pattern}]` |
 
 ### How it avoids false alerts
 `python -m mining_alerts validate` checks the watchlist and lists weak spots:
@@ -76,6 +76,11 @@ The digest is sent on the first run after `DIGEST_HOUR` in your time zone
 digest is actually delivered, so a failed email loses nothing.
 `run --send-digest` sends the queued digest immediately.
 
+**Weekly recap (optional):** set `WEEKLY_RECAP_DAY=friday`. You'll then also get one
+email listing everything sent in the last 7 days, grouped by company and project,
+at `DIGEST_HOUR` on that day. It works with any `ALERT_MODE`.
+`run --send-recap` sends one immediately.
+
 ### Broken-feed warnings
 If a source fails 3 runs in a row (a feed address changed, a site blocking us),
 you get one "Source health" warning in your alert channel. Run
@@ -107,8 +112,10 @@ Pick one:
 
 - **GitHub Actions (recommended, no server needed):** push this folder to a
   private GitHub repo and add the `.env` values as repository secrets
-  (Settings → Secrets → Actions). Put `ALERT_MODE`, `DIGEST_HOUR` and
-  `DIGEST_TZ` under the Variables tab instead. `.github/workflows/alerts.yml` runs
+  (Settings → Secrets → Actions). Put `ALERT_MODE`, `DIGEST_HOUR`, `DIGEST_TZ`
+  and `WEEKLY_RECAP_DAY` under the Variables tab instead. A separate `tests`
+  workflow runs the test suite and the watchlist check on every push, so a typo in
+  `watchlist.yaml` shows up as a red ✗ before it can break alerts. `.github/workflows/alerts.yml` runs
   every 30 minutes and keeps its database (items already seen, digest queue) in the
   Actions cache.
 - **cron on any machine:**

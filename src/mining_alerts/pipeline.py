@@ -39,6 +39,7 @@ class RunResult:
     collapsed: int = 0                                   # near-duplicates merged/suppressed
     queued: list[Announcement] = field(default_factory=list)  # held for the daily digest
     digest_sent: int = 0                                 # queued items delivered this run
+    recap_sent: int = 0                                  # items in the weekly recap, if sent
 
 
 @dataclass
@@ -49,23 +50,43 @@ class Delivery:
     smart   - project news and high-priority types (M&A, financing, permits...) go out
               immediately; routine company news is collected into one daily digest
     daily   - everything is collected into one daily digest
+
+    weekly_day (optional, any mode): also send a recap of everything from the last 7
+    days on that weekday (0=Monday ... 4=Friday), after digest_hour.
     """
     mode: str = "instant"
     digest_hour: int = 7          # local hour after which the daily digest is sent
     tz: str = "Europe/London"   # UK time; handles GMT/BST automatically
+    weekly_day: int | None = None
 
     MODES = ("instant", "smart", "daily")
+    DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
     def __post_init__(self) -> None:
         if self.mode not in self.MODES:
             raise ValueError(f"ALERT_MODE must be one of {self.MODES}, got {self.mode!r}")
+        if not 0 <= self.digest_hour <= 23:
+            raise ValueError(f"DIGEST_HOUR must be 0-23, got {self.digest_hour}")
+        if self.weekly_day is not None and not 0 <= self.weekly_day <= 6:
+            raise ValueError("weekly_day must be 0 (Mon) - 6 (Sun)")
         ZoneInfo(self.tz)  # fail fast on a bad time zone name
 
     @classmethod
     def from_env(cls, env: dict[str, str]) -> "Delivery":
+        day = (env.get("WEEKLY_RECAP_DAY") or "").strip().lower()[:3]
+        if day and day not in cls.DAYS:
+            raise ValueError(f"WEEKLY_RECAP_DAY must be a weekday name (e.g. friday), got {day!r}")
         return cls(mode=env.get("ALERT_MODE", "instant").strip().lower() or "instant",
                    digest_hour=int(env.get("DIGEST_HOUR", "7")),
-                   tz=env.get("DIGEST_TZ", "Europe/London").strip() or "Europe/London")
+                   tz=env.get("DIGEST_TZ", "Europe/London").strip() or "Europe/London",
+                   weekly_day=cls.DAYS.index(day) if day else None)
+
+    def recap_due(self, now: datetime, last_recap: str | None) -> bool:
+        if self.weekly_day is None:
+            return False
+        local = now.astimezone(ZoneInfo(self.tz))
+        return (local.weekday() == self.weekly_day and local.hour >= self.digest_hour
+                and last_recap != local.date().isoformat())
 
     def is_urgent(self, item: Announcement) -> bool:
         if self.mode == "instant":
@@ -99,7 +120,8 @@ class _HostThrottle:
 def run(watchlist: Watchlist, sources: list[Source], store: Store, notifiers: list[Notifier],
         session: requests.Session | None, *, dry_run: bool = False, baseline: bool = True,
         now: datetime | None = None, host_delay: dict[str, float] | None = None,
-        delivery: "Delivery | None" = None, force_digest: bool = False) -> RunResult:
+        delivery: "Delivery | None" = None, force_digest: bool = False,
+        force_recap: bool = False) -> RunResult:
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(days=watchlist.max_age_days)
     throttle = _HostThrottle(HOST_DELAY if host_delay is None else host_delay)
@@ -172,7 +194,7 @@ def run(watchlist: Watchlist, sources: list[Source], store: Store, notifiers: li
     delivered = True
     outgoing = _sorted(urgent + digest_items, now)
     if outgoing or result.warnings:
-        delivered = _deliver(notifiers, outgoing, result, digest=bool(digest_items))
+        delivered = _deliver(notifiers, outgoing, result, kind="digest" if digest_items else "alert")
         if delivered:
             store.mark_seen(urgent, alerted=True)
             store.dequeue(digest_items)
@@ -181,6 +203,17 @@ def run(watchlist: Watchlist, sources: list[Source], store: Store, notifiers: li
             log.error("no alert channel succeeded; items will be retried next run")
     if digest_due and delivered and delivery.mode != "instant":
         store.set_value("last_digest", delivery.local_date(now))
+
+    # Weekly recap: everything sent in the last 7 days, grouped by company/project.
+    if force_recap or delivery.recap_due(now, store.get_value("last_recap")):
+        week = store.alerted_since(7, now)
+        recap_run = RunResult()  # separate so source warnings aren't repeated in the recap
+        if week and _deliver(notifiers, _sorted(week, now), recap_run, kind="weekly"):
+            result.recap_sent = len(week)
+            store.set_value("last_recap", delivery.local_date(now))
+        elif not week:
+            store.set_value("last_recap", delivery.local_date(now))
+        result.errors.update({f"{k} (weekly recap)": v for k, v in recap_run.errors.items()})
     store.mark_seen(silent, alerted=False)
     for name in ok_sources:
         store.mark_source(name)
@@ -194,13 +227,13 @@ def _sorted(items: list[Announcement], now: datetime) -> list[Announcement]:
 
 
 def _deliver(notifiers: list[Notifier], items: list[Announcement], result: RunResult,
-             digest: bool) -> bool:
+             kind: str) -> bool:
     """Send via every channel. True if a real channel (email/slack/...) succeeded - or
     console is the only channel - so a failed email is retried next run."""
     ok: list[str] = []
     for n in notifiers:
         try:
-            n.send(items, warnings=result.warnings, digest=digest)
+            n.send(items, warnings=result.warnings, kind=kind)
             ok.append(n.name)
         except Exception as exc:
             log.error("notifier %s failed: %s", n.name, exc)

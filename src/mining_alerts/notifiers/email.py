@@ -7,7 +7,7 @@ import smtplib
 from email.message import EmailMessage
 
 from ..models import Announcement
-from .base import Notifier, meta, plain_digest, summary_line
+from .base import SUBJECT_PREFIX, Notifier, meta, plain_digest, summary_line
 
 
 TAG_STYLE = ("display:inline-block;padding:1px 6px;margin-right:4px;border-radius:3px;"
@@ -15,9 +15,9 @@ TAG_STYLE = ("display:inline-block;padding:1px 6px;margin-right:4px;border-radiu
 HIGH_STYLE = TAG_STYLE.replace("#eef;color:#335", "#fde8e8;color:#9b1c1c")
 
 
-def html_digest(items: list[Announcement], warnings=(), digest: bool = False) -> str:
+def html_digest(items: list[Announcement], warnings=(), kind: str = "alert") -> str:
     from . import group_by_label
-    parts = [f"<p><b>{html.escape(summary_line(items, digest))}</b></p>"] if items else []
+    parts = [f"<p><b>{html.escape(summary_line(items, kind))}</b></p>"] if items else []
     for label, is_project, its in group_by_label(items):
         badge = "&#9733; PROJECT" if is_project else "Company"
         parts.append(f"<h3 style='margin-bottom:4px'>{badge}: {html.escape(label)}</h3><ul>")
@@ -57,12 +57,13 @@ class EmailNotifier(Notifier):
             to=[a.strip() for a in env["ALERT_EMAIL_TO"].split(",") if a.strip()],
         )
 
-    def build_message(self, items: list[Announcement], warnings=(), digest: bool = False) -> EmailMessage:
+    def build_message(self, items: list[Announcement], warnings=(), kind: str = "alert") -> EmailMessage:
         from . import group_by_label
         labels = [g[0] for g in group_by_label(items)]
         if items:
             hot = sorted({i.categories[0] for i in items if i.is_high_priority and i.categories})
-            subject = f"[Mining {'digest' if digest else 'alerts'}] {len(items)} new"
+            subject = f"{SUBJECT_PREFIX.get(kind, SUBJECT_PREFIX['alert'])} {len(items)}"
+            subject += "" if kind == "weekly" else " new"
             subject += f" ({', '.join(hot)})" if hot else ""
             subject += ": " + ", ".join(labels[:3])
             if len(labels) > 3:
@@ -71,12 +72,12 @@ class EmailNotifier(Notifier):
             subject = "[Mining alerts] source health warning"
         msg = EmailMessage()
         msg["Subject"], msg["From"], msg["To"] = subject, self.sender, ", ".join(self.to)
-        msg.set_content(plain_digest(items, warnings, digest))
-        msg.add_alternative(html_digest(items, warnings, digest), subtype="html")
+        msg.set_content(plain_digest(items, warnings, kind))
+        msg.add_alternative(html_digest(items, warnings, kind), subtype="html")
         return msg
 
-    def send(self, items: list[Announcement], warnings=(), digest: bool = False) -> None:
-        msg = self.build_message(items, warnings, digest)
+    def send(self, items: list[Announcement], warnings=(), kind: str = "alert") -> None:
+        msg = self.build_message(items, warnings, kind)
         with smtplib.SMTP(self.host, self.port, timeout=30) as smtp:
             smtp.starttls()
             if self.user:

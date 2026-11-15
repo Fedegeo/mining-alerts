@@ -31,11 +31,12 @@ class Broken:
 class Recorder:
     def __init__(self, name="slack", fail=False):
         self.name, self.fail, self.calls = name, fail, []
-    def send(self, items, warnings=(), digest=False):
+    def send(self, items, warnings=(), kind="alert"):
         if self.fail:
             raise RuntimeError("down")
         self.calls.append((items, list(warnings)))
-        self.digests = getattr(self, "digests", []) + [digest]
+        self.digests = getattr(self, "digests", []) + [kind == "digest"]
+        self.kinds = getattr(self, "kinds", []) + [kind]
 
 
 def run(store, notifiers, sources=None, **kw):
@@ -248,7 +249,7 @@ def test_delivery_env_and_timezone():
 def test_email_subject_for_digest(tmp_path):
     item = _routine()
     item.matches = [Match("altius", "Altius Minerals")]
-    msg = EmailNotifier("h", 587, "u", "p", "f@x", ["t@x"]).build_message([item], digest=True)
+    msg = EmailNotifier("h", 587, "u", "p", "f@x", ["t@x"]).build_message([item], kind="digest")
     assert msg["Subject"].startswith("[Mining digest] 1 new")
 
 
@@ -261,3 +262,67 @@ def test_uk_default_handles_bst():
     # GMT (UTC+0): 06:30 UTC is still 06:30 in London
     assert not d.digest_due(winter.replace(hour=6, minute=30), None)
     assert d.digest_due(winter.replace(hour=7, minute=5), None)
+
+
+# ---------------------------------------------------------------- weekly recap
+FRIDAY = datetime(2026, 11, 13, 8, 0, tzinfo=timezone.utc)   # a Friday, 08:00 UK time
+
+
+def test_weekly_recap_sent_once_on_the_day(tmp_path):
+    store, rec = Store(tmp_path / "db.sqlite"), Recorder()
+    weekly = Delivery(mode="instant", digest_hour=7, weekly_day=4)
+    # Monday: a normal alert goes out, no recap
+    run(store, [rec], sources=[Items([_urgent()])], baseline=False, delivery=weekly,
+        now=FRIDAY - timedelta(days=4))
+    assert rec.kinds == ["alert"]
+    # Friday 08:00: recap of the week
+    res = run(store, [rec], sources=[Items([])], baseline=False, delivery=weekly, now=FRIDAY)
+    assert res.recap_sent == 1 and rec.kinds[-1] == "weekly"
+    assert rec.calls[-1][0][0].title == _urgent().title
+    assert rec.calls[-1][0][0].categories == ["M&A", "Royalty/Stream"]  # details survive storage
+    # Friday 09:00: not again
+    run(store, [rec], sources=[Items([])], baseline=False, delivery=weekly, now=FRIDAY + timedelta(hours=1))
+    assert rec.kinds.count("weekly") == 1
+
+
+def test_recap_skips_items_older_than_a_week_and_can_be_forced(tmp_path):
+    store, rec = Store(tmp_path / "db.sqlite"), Recorder()
+    old = _urgent()
+    old.matches = [Match("elemental_royalty", "Elemental Royalty")]
+    store.mark_seen([old], alerted=True)
+    store.conn.execute("UPDATE seen SET first_seen='2026-10-01T00:00:00+00:00'")
+    res = run(store, [rec], sources=[Items([])], baseline=False, force_recap=True,
+              delivery=Delivery(), now=FRIDAY)
+    assert res.recap_sent == 0 and "weekly" not in getattr(rec, "kinds", [])
+
+
+def test_weekly_env_parsing():
+    import pytest
+    assert Delivery.from_env({"WEEKLY_RECAP_DAY": "Friday"}).weekly_day == 4
+    assert Delivery.from_env({}).weekly_day is None
+    with pytest.raises(ValueError):
+        Delivery.from_env({"WEEKLY_RECAP_DAY": "someday"})
+    with pytest.raises(ValueError):
+        Delivery(digest_hour=25)
+
+
+def test_old_database_is_migrated(tmp_path):
+    import sqlite3
+    db = tmp_path / "old.sqlite"
+    con = sqlite3.connect(db)
+    con.executescript("""CREATE TABLE seen (key TEXT PRIMARY KEY, title TEXT, url TEXT, source TEXT,
+        matches TEXT, alerted INTEGER NOT NULL DEFAULT 0, first_seen TEXT NOT NULL);
+        INSERT INTO seen VALUES ('k', 't', 'u', 's', '', 1, '2026-11-01T00:00:00+00:00');""")
+    con.commit(); con.close()
+    store = Store(db)
+    item = _urgent()
+    store.mark_seen([item], alerted=True)
+    assert [i.title for i in store.alerted_since(30, FRIDAY)] == [item.title]
+
+
+def test_recap_email_subject():
+    item = _routine()
+    item.matches = [Match("altius", "Altius Minerals")]
+    msg = EmailNotifier("h", 587, "u", "p", "f@x", ["t@x"]).build_message([item], kind="weekly")
+    assert msg["Subject"].startswith("[Mining weekly recap] 1: Altius Minerals")
+    assert "Weekly recap: 1 announcement(s) in the last 7 days" in msg.get_body(("plain",)).get_content()

@@ -46,6 +46,14 @@ class Store:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(path))
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Bring databases created by older versions up to date."""
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(seen)")}
+        if "payload" not in cols:  # added for the weekly recap
+            self.conn.execute("ALTER TABLE seen ADD COLUMN payload TEXT")
+            self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()
@@ -69,10 +77,22 @@ class Store:
         rows = []
         for it in items:
             labels = "; ".join(m.label for m in it.matches)
+            payload = json.dumps(it.to_dict()) if alerted else None
             for key in (it.url_key, it.title_key):
-                rows.append((key, it.title, it.url, it.source, labels, int(alerted), now))
-        self.conn.executemany("INSERT OR IGNORE INTO seen VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+                rows.append((key, it.title, it.url, it.source, labels, int(alerted), now, payload))
+        self.conn.executemany(
+            "INSERT OR IGNORE INTO seen (key, title, url, source, matches, alerted, first_seen, payload) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
         self.conn.commit()
+
+    def alerted_since(self, days: int, now: datetime | None = None) -> list[Announcement]:
+        """Every item sent (or queued for the digest) in the last `days` days."""
+        now = now or datetime.now(timezone.utc)
+        cutoff = (now - timedelta(days=days)).isoformat(timespec="seconds")
+        rows = self.conn.execute(
+            "SELECT payload FROM seen WHERE alerted=1 AND payload IS NOT NULL AND first_seen >= ? "
+            "GROUP BY url ORDER BY first_seen", (cutoff,)).fetchall()
+        return [Announcement.from_dict(json.loads(r[0])) for r in rows]
 
     def alerted_titles_since(self, days: int) -> list[str]:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")

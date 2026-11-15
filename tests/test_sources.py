@@ -69,7 +69,8 @@ def test_build_sources_dedupes_shared_urls():
     sources = build_sources(WL)
     urls = [getattr(s, "url", s.name) for s in sources]
     assert len(urls) == len(set(urls))
-    assert any(s.name == "edgar:LAC" for s in sources)
+    assert any(s.name == "edgar:0001966983" for s in sources)   # Lithium Americas by CIK
+    assert any(s.name.startswith("web:https://www.investegate.co.uk") for s in sources)
     assert any(s.name == "asx:LEL" for s in sources)
 
 
@@ -91,3 +92,24 @@ def test_session_has_retries():
     from mining_alerts.sources import make_session
     adapter = make_session().get_adapter("https://news.google.com")
     assert adapter.max_retries.total == 3 and 429 in adapter.max_retries.status_forcelist
+
+
+def test_investegate_rns_page():
+    html = """
+    <a href="/announcement/rns/cornish-metals-plc--tin/loi-from-export-import-bank-of-the-united-states/9410109">
+       LOI FROM EXPORT-IMPORT BANK OF THE UNITED STATES</a>
+    <a href="/announcement/rns/cornish-metals-plc--tin/roskear-exploration-drilling-update/9600001">
+       ROSKEAR EXPLORATION DRILLING UPDATE</a>
+    <a href="/company/TIN?page=2">Next page of announcements for this company</a>"""
+    items = parse_links(html, "https://www.investegate.co.uk/company/TIN",
+                        "/announcement/[a-z]+/cornish-metals", "web", "cornish_metals")
+    assert items[0].title.startswith("LOI from export-import bank")
+    assert items[1].title == "Roskear exploration drilling update"
+    assert all(i.publisher == "RNS" for i in items) and len(items) == 2
+
+
+def test_cornish_metals_rns_item_is_project_hit():
+    from mining_alerts.models import Announcement
+    it = Announcement(title="Roskear exploration drilling update", url="u", source="web",
+                      company_hint="cornish_metals")
+    assert [m.label for m in WL.match(it)] == ["Cornish Metals / South Crofty"]

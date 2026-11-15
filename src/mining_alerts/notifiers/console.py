@@ -7,5 +7,5 @@ from .base import Notifier, plain_digest
 class ConsoleNotifier(Notifier):
     name = "console"
 
-    def send(self, items: list[Announcement], warnings=(), digest: bool = False) -> None:
-        print(plain_digest(items, warnings, digest))
+    def send(self, items: list[Announcement], warnings=(), kind: str = "alert") -> None:
+        print(plain_digest(items, warnings, kind))

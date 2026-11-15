@@ -49,6 +49,7 @@ jobs:
           ALERT_MODE: ${{ vars.ALERT_MODE || 'instant' }}
           DIGEST_HOUR: ${{ vars.DIGEST_HOUR || '7' }}
           DIGEST_TZ: ${{ vars.DIGEST_TZ || 'Europe/London' }}
+          WEEKLY_RECAP_DAY: ${{ vars.WEEKLY_RECAP_DAY }}
         run: |
           # Until an alert channel is configured, don't run: items would only reach the
           # job log and then be remembered as already sent.
