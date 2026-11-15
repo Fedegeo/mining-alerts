@@ -250,3 +250,14 @@ def test_email_subject_for_digest(tmp_path):
     item.matches = [Match("altius", "Altius Minerals")]
     msg = EmailNotifier("h", 587, "u", "p", "f@x", ["t@x"]).build_message([item], digest=True)
     assert msg["Subject"].startswith("[Mining digest] 1 new")
+
+
+def test_uk_default_handles_bst():
+    d = Delivery.from_env({"ALERT_MODE": "smart"})
+    assert d.tz == "Europe/London" and d.digest_hour == 7
+    summer, winter = datetime(2026, 7, 1, tzinfo=timezone.utc), datetime(2026, 12, 1, tzinfo=timezone.utc)
+    # BST (UTC+1): 06:30 UTC is already 07:30 in London
+    assert d.digest_due(summer.replace(hour=6, minute=30), None)
+    # GMT (UTC+0): 06:30 UTC is still 06:30 in London
+    assert not d.digest_due(winter.replace(hour=6, minute=30), None)
+    assert d.digest_due(winter.replace(hour=7, minute=5), None)

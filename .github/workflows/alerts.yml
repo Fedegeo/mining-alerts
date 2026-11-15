@@ -48,7 +48,7 @@ jobs:
           # Non-secret settings: Settings > Secrets and variables > Actions > Variables
           ALERT_MODE: ${{ vars.ALERT_MODE || 'instant' }}
           DIGEST_HOUR: ${{ vars.DIGEST_HOUR || '7' }}
-          DIGEST_TZ: ${{ vars.DIGEST_TZ || 'UTC' }}
+          DIGEST_TZ: ${{ vars.DIGEST_TZ || 'Europe/London' }}
         run: mining-alerts run
 
       - name: Save seen-items database

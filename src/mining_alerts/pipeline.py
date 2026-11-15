@@ -52,7 +52,7 @@ class Delivery:
     """
     mode: str = "instant"
     digest_hour: int = 7          # local hour after which the daily digest is sent
-    tz: str = "UTC"
+    tz: str = "Europe/London"   # UK time; handles GMT/BST automatically
 
     MODES = ("instant", "smart", "daily")
 
@@ -65,7 +65,7 @@ class Delivery:
     def from_env(cls, env: dict[str, str]) -> "Delivery":
         return cls(mode=env.get("ALERT_MODE", "instant").strip().lower() or "instant",
                    digest_hour=int(env.get("DIGEST_HOUR", "7")),
-                   tz=env.get("DIGEST_TZ", "UTC").strip() or "UTC")
+                   tz=env.get("DIGEST_TZ", "Europe/London").strip() or "Europe/London")
 
     def is_urgent(self, item: Announcement) -> bool:
         if self.mode == "instant":

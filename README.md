@@ -72,7 +72,7 @@ release or the press-release wire chosen as the original, plus a line like
 | `daily` | Everything goes into one daily digest. |
 
 The digest is sent on the first run after `DIGEST_HOUR` in your time zone
-(`DIGEST_TZ`, e.g. `America/Argentina/Buenos_Aires`). Items stay queued until a
+(`DIGEST_TZ`, default `Europe/London`: UK time, GMT/BST handled automatically). Items stay queued until a
 digest is actually delivered, so a failed email loses nothing.
 `run --send-digest` sends the queued digest immediately.
 
